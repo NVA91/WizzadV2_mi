@@ -1,0 +1,92 @@
+---
+- name: "📂 Paperless Verzeichnisse erstellen"
+  file:
+    path: "/opt/docker/paperless/{{ item }}"
+    state: directory
+    mode: '0755'
+    recurse: yes
+  loop:
+    - data
+    - media
+    - consume
+    - export
+    - pgdata 
+    - redisdata 
+
+- name: "📝 Paperless Docker-Compose Datei erstellen"
+  copy:
+    dest: "/opt/docker/paperless/docker-compose.yml"
+    content: |
+      services:
+        broker:
+          image: docker.io/library/redis:7
+          volumes:
+            - ./redisdata:/data
+          networks:
+            - app_network
+          restart: unless-stopped
+
+        db:
+          image: docker.io/library/postgres:16
+          environment:
+            POSTGRES_DB: paperless
+            POSTGRES_USER: paperless
+            POSTGRES_PASSWORD: paperless_db_password_change_me
+          volumes:
+            - ./pgdata:/var/lib/postgresql/data
+          networks:
+            - app_network
+          restart: unless-stopped
+
+        webserver:
+          image: ghcr.io/paperless-ngx/paperless-ngx:latest
+          depends_on:
+            - db
+            - broker
+            - gotenberg
+            - tika
+          ports:
+            - "8010:8000"
+          environment:
+            PAPERLESS_REDIS: redis://broker:6379
+            PAPERLESS_DBHOST: db
+            PAPERLESS_DBPASS: paperless_db_password_change_me
+            PAPERLESS_OCR_LANGUAGE: deu
+            PAPERLESS_SECRET_KEY: change_this_to_a_random_string
+            PAPERLESS_URL: [https://paperless.local](https://paperless.local)
+            PAPERLESS_TIKA_ENABLED: 1
+            PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+            PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+          volumes:
+            - ./data:/usr/src/paperless/data
+            - ./media:/usr/src/paperless/media
+            - ./export:/usr/src/paperless/export
+            - ./consume:/usr/src/paperless/consume
+          networks:
+            - app_network
+          restart: unless-stopped
+
+        gotenberg:
+          image: docker.io/gotenberg/gotenberg:7.10
+          command:
+            - "gotenberg"
+            - "--chromium-disable-javascript=true"
+            - "--chromium-allow-list=file:///tmp/.*"
+          networks:
+            - app_network
+          restart: unless-stopped
+
+        tika:
+          image: apache/tika:latest
+          networks:
+            - app_network
+          restart: unless-stopped
+
+      networks:
+        app_network:
+          external: true
+
+- name: "🚀 Paperless Stack starten"
+  community.docker.docker_compose_v2:
+    project_src: /opt/docker/paperless
+    state: present

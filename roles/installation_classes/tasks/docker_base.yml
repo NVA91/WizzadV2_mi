@@ -1,0 +1,36 @@
+---
+- name: "📦 Docker-Abhängigkeiten installieren"
+  apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+    update_cache: yes
+
+- name: "🔑 Docker GPG Key hinzufügen"
+  apt_key:
+    url: [https://download.docker.com/linux/debian/gpg](https://download.docker.com/linux/debian/gpg)
+    state: present
+
+- name: "📄 Docker Repository hinzufügen"
+  apt_repository:
+    repo: "deb [arch=amd64] [https://download.docker.com/linux/debian](https://download.docker.com/linux/debian) {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: "🐳 Docker Engine & Compose installieren"
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+
+- name: "👤 Admin-User zur Docker-Gruppe hinzufügen"
+  user:
+    name: admin_user
+    groups: docker
+    append: yes

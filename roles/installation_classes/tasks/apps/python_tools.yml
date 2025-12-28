@@ -1,0 +1,29 @@
+---
+- name: "📂 Python Script Ordner erstellen"
+  file:
+    path: "/opt/docker/python_scripts/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - src
+    - data
+
+- name: "🐍 Python Automation Container"
+  docker_container:
+    name: python_automator
+    image: python:3.11-slim
+    state: started
+    restart_policy: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+    volumes:
+      - /opt/docker/python_scripts/src:/app
+      - /opt/docker/python_scripts/data:/data
+      - /opt/docker/paperless/consume:/paperless_consume
+    networks:
+      - name: app_network
+    entrypoint: >
+      sh -c "pip install requests pypdf reportlab psycopg2-binary && tail -f /dev/null"
+
+- name: "✅ Info Python"
+  debug:
+    msg: "Python Container läuft. Skripte nach /opt/docker/python_scripts/src legen."

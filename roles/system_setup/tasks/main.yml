@@ -1,0 +1,27 @@
+---
+- name: "🔄 Apt Cache aktualisieren"
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: "🆙 System Upgrade (dist-upgrade)"
+  apt:
+    upgrade: dist
+
+- name: "🛠️ Basispakete installieren"
+  apt:
+    name:
+      - vim
+      - curl
+      - git
+      - htop
+      - net-tools
+      - wget
+      - python3-pip
+      - python3-docker # WICHTIG für Ansible Docker Module
+    state: present
+
+- name: "📦 Ansible Docker Collection installieren"
+  command: ansible-galaxy collection install community.docker
+  delegate_to: localhost 
+  ignore_errors: yes 

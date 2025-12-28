@@ -1,0 +1,23 @@
+---
+# 1. Basis & Netzwerk
+- name: "🏗️ SETUP: Docker Umgebung vorbereiten"
+  include_tasks: docker_base.yml
+
+- name: "🌐 SETUP: Docker Netzwerke"
+  docker_network:
+    name: app_network
+    state: present
+
+# 2. Management
+- name: "🐙 APP: Portainer CE"
+  include_tasks: apps/portainer.yml
+
+# 3. Das Single Work System
+- name: "📄 APP: Paperless-ngx (Dokumenten-Management)"
+  include_tasks: apps/paperless_stack.yml
+
+- name: "🗣️ APP: Whisper AI (Speech-to-Text API)"
+  include_tasks: apps/whisper.yml
+
+- name: "🐍 APP: Python Automation Tools"
+  include_tasks: apps/python_tools.yml
