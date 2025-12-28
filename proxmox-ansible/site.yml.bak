@@ -1,0 +1,48 @@
+---
+- name: Setup Wizard auf dem Controller ausführen
+  hosts: localhost
+  gather_facts: false
+  vars_prompt:
+    - name: "wizard_selected_hosts"
+      prompt: "Welche Inventory-Gruppe oder Host(s) sollen durchsucht werden? (z.B. all, proxyv3)"
+      private: no
+      default: "proxyv3"
+    - name: "wizard_perform_backup"
+      prompt: "Backup der gefundenen Dateien auf Controller speichern? (true/false)"
+      private: no
+      default: "true"
+    - name: "wizard_search_patterns"
+      prompt: "Welche Dateimuster sollen durchsucht werden? (Komma-getrennt, z.B. *.conf,*.cfg,*.ini)"
+      private: no
+      default: "*.conf,*.cfg,*.ini"
+    - name: "wizard_extra_paths"
+      prompt: "Zusätzliche Verzeichnisse durchsuchen? (Komma-getrennt, leer lassen für Standard)"
+      private: no
+      default: ""
+  tasks:
+    - name: Auswahl anzeigen
+      debug:
+        msg:
+          - "Hosts: {{ wizard_selected_hosts }}"
+          - "Backup: {{ wizard_perform_backup }}"
+          - "Muster: {{ wizard_search_patterns }}"
+          - "Zusätzliche Pfade: {{ wizard_extra_paths }}"
+    - name: Alle Variablen für weitere Rollen setzen
+      set_fact:
+        selected_hosts: "{{ wizard_selected_hosts }}"
+        perform_backup: "{{ wizard_perform_backup | lower == 'true' }}"
+        search_patterns: "{{ wizard_search_patterns.split(',') | map('trim') | list }}"
+        extra_paths: >-
+          {% if wizard_extra_paths | type_debug == 'str' and (wizard_extra_paths | trim | length > 0) %}
+            {{ wizard_extra_paths.split(',') | map('trim') | list }}
+          {% else %}
+            []
+          {% endif %}
+
+- name: Proxmox Ansible Grundsetup (auf Zielhosts)
+  hosts: "{{ selected_hosts | default('proxyv3') }}"
+  become: true
+  roles:
+    - system_setup
+    - user_management
+    - project_backup

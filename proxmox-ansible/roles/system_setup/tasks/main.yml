@@ -1,0 +1,19 @@
+---
+- name: Systemaktualisierungen durchführen
+  apt:
+    update_cache: yes
+    upgrade: dist
+  register: update_result
+
+- name: Prüfen, ob Updates erfolgreich waren
+  assert:
+    that: update_result is defined
+    fail_msg: "Systemaktualisierungen fehlgeschlagen"
+
+- name: Erforderliche Pakete installieren
+  apt:
+    name:
+      - vim
+      - curl
+      - git
+    state: present
