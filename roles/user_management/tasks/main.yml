@@ -1,5 +1,17 @@
 ---
-- name: "👥 Admin-Gruppe sicherstellen"
+- name: "Prüfen, ob lokaler SSH Public Key existiert"
+  stat:
+    path: "{{ ssh_key_path }}"
+  register: pub_key_file
+  delegate_to: localhost
+  become: false
+
+- name: "ABBRUCH: Kein SSH Key gefunden!"
+  fail:
+    msg: "❌ FEHLER: {{ ssh_key_path }} nicht gefunden! Bitte führe erst ./setup_prod_env.sh in WSL aus."
+  when: not pub_key_file.stat.exists
+
+- name: "👥 Admin-Gruppe anlegen"
   group:
     name: admin_group
     state: present
@@ -13,14 +25,14 @@
     create_home: yes
     state: present
 
-- name: "🔑 SSH Public Key hinterlegen"
+- name: "🔑 SSH Public Key auf Server hinterlegen"
   authorized_key:
     user: "{{ admin_username }}"
     state: present
-    # Wir lesen den PUBLIC Key ein. Der Private bleibt auf dem Controller (WSL).
-    key: "{{ lookup('file', admin_ssh_pubkey_path) }}"
+    key: "{{ lookup('file', ssh_key_path) }}"
+    exclusive: no
 
-- name: "🛡️ Sudo ohne Passwort für Admin (Optional, für Komfort)"
+- name: "🛡️ Sudo ohne Passwort erlauben"
   copy:
     dest: "/etc/sudoers.d/{{ admin_username }}"
     content: "{{ admin_username }} ALL=(ALL) NOPASSWD: ALL"

@@ -2,3 +2,7 @@
 # Security: Private Keys niemals hochladen!
 roles/user_management/files/id_rsa_prod
 !roles/user_management/files/id_rsa_prod.pub
+
+# SECURITY: SSH Keys lokal halten, nie hochladen!
+roles/user_management/files/id_rsa_prod
+roles/user_management/files/id_rsa_prod.pub

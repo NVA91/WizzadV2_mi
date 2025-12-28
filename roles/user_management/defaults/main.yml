@@ -1,6 +1,9 @@
 ---
+# User Konfiguration
 admin_username: admin_user
-admin_groups: "sudo"
 admin_shell: /bin/bash
-# Pfad zum Public Key (dieser darf im Repo sein)
-admin_ssh_pubkey_path: "roles/user_management/files/id_rsa_prod.pub"
+admin_groups: "sudo"
+
+# Pfad zum Public Key (LOKAL auf dem Controller/WSL)
+# Wir erwarten, dass das setup_prod_env.sh Skript diesen Key erzeugt hat.
+ssh_key_path: "{{ role_path }}/files/id_rsa_prod.pub"
