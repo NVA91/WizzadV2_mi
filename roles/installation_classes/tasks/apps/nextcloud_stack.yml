@@ -1,0 +1,61 @@
+---
+- name: "📂 Nextcloud Verzeichnisse erstellen"
+  file:
+    path: "/opt/docker/nextcloud/{{ item }}"
+    state: directory
+    mode: '0755'
+    recurse: yes
+  loop:
+    - db_data
+    - nc_data
+    - apps
+
+- name: "☁️ Nextcloud Stack (DB + App + Office) definieren"
+  copy:
+    dest: "/opt/docker/nextcloud/docker-compose.yml"
+    content: |
+      services:
+        db:
+          image: mariadb:10.6
+          command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+          restart: always
+          volumes:
+            - ./db_data:/var/lib/mysql
+          environment:
+            - MYSQL_ROOT_PASSWORD=nextcloud_db_password
+            - MYSQL_PASSWORD=nextcloud_db_password
+            - MYSQL_DATABASE=nextcloud
+            - MYSQL_USER=nextcloud
+          networks:
+            - app_network
+
+        app:
+          image: nextcloud:latest
+          restart: always
+          ports:
+            - 8080:80
+          volumes:
+            - ./nc_data:/var/www/html
+            - ./apps:/var/www/html/custom_apps
+          environment:
+            - MYSQL_PASSWORD=nextcloud_db_password
+            - MYSQL_DATABASE=nextcloud
+            - MYSQL_USER=nextcloud
+            - MYSQL_HOST=db
+          depends_on:
+            - db
+          networks:
+            - app_network
+      
+      networks:
+        app_network:
+          external: true
+
+- name: "🚀 Nextcloud starten"
+  community.docker.docker_compose_v2:
+    project_src: /opt/docker/nextcloud
+    state: present
+
+- name: "✅ Info Nextcloud"
+  debug:
+    msg: "Nextcloud erreichbar unter http://{{ inventory_hostname }}:8080. (Beim ersten Start 'MySQL/MariaDB' wählen!)"

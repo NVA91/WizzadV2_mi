@@ -24,3 +24,6 @@
 
 - name: "🏠 APP: Home Dashboard (Central Hub)"
   include_tasks: apps/home_dashboard.yml
+
+- name: "☁️ APP: Nextcloud Hub (Cloud & Office)"
+  include_tasks: apps/nextcloud_stack.yml
