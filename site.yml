@@ -1,159 +1,65 @@
 ---
-- name: "Setup Wizard auf dem Controller ausführen"
+# ------------------------------------------------------------------------------
+# STEP 1: CONFIGURATION WIZARD
+# ------------------------------------------------------------------------------
+- name: "🧙 WizzadV2: Configuration"
   hosts: controllers
   gather_facts: false
-
   vars_prompt:
-    - name: "wizard_selected_hosts"
-      prompt: "✅ Welche Inventory‑Gruppe oder welche Hosts sollen durchsucht werden? (z. B. all, proxyv3)"
+    - name: "wiz_target"
+      prompt: "🎯 Ziel-Host (z.B. proxmox_servers)"
+      default: "proxmox_servers"
       private: no
-      default: "proxyv3"
 
-    - name: "wizard_perform_backup"
-      prompt: "💾 Soll ein Backup der gefundenen Dateien auf dem Controller gespeichert werden? (ja/nein)"
-      private: no
+    - name: "wiz_core_infra"
+      prompt: "🧱 Install Core Infra (Traefik + Authentik + Logs)? (ja/nein)"
       default: "ja"
-
-    - name: "wizard_search_patterns"
-      prompt: "🔍 Welche Dateimuster sollen durchsucht werden? (Komma-getrennt, z. B. *.conf,*.cfg,*.ini)"
       private: no
-      default: "*.conf,*.cfg,*.ini"
 
-    - name: "wizard_extra_paths"
-      prompt: "📁 Zusätzliche Verzeichnisse durchsuchen? (komma-getrennt, leer = keine)"
-      private: no
-      default: ""
-
-    - name: "wizard_run_validation"
-      prompt: "✅ Soll nach dem Setup eine vollständige Validierung stattfinden? (ja/nein)"
-      private: no
+    - name: "wiz_apps"
+      prompt: "📦 Install Applications (Paperless, Nextcloud, Jellyfin)? (ja/nein)"
       default: "ja"
+      private: no
+
+    - name: "wiz_backup_test"
+      prompt: "🧪 Run Backup & Restore Validation? (ja/nein)"
+      default: "nein"
+      private: no
 
   tasks:
-    - name: "📋 Auswahl anzeigen"
-      debug:
-        msg:
-          - "Hosts: {{ wizard_selected_hosts }}"
-          - "Backup: {{ wizard_perform_backup }}"
-          - "Muster: {{ wizard_search_patterns }}"
-          - "Zusätzliche Pfade: {{ wizard_extra_paths }}"
-          - "Validierung: {{ wizard_run_validation }}"
+    - name: "🚀 Konfiguration übergeben"
+      add_host:
+        name: "WIZARD_CONFIG"
+        target: "{{ wiz_target }}"
+        do_infra: "{{ wiz_core_infra | lower == 'ja' }}"
+        do_apps: "{{ wiz_apps | lower == 'ja' }}"
+        do_test: "{{ wiz_backup_test | lower == 'ja' }}"
 
-    - name: "⚙️ Variablen setzen"
-      set_fact:
-        selected_hosts: "{{ wizard_selected_hosts }}"
-        perform_backup: "{{ wizard_perform_backup | lower == 'ja' }}"
-        search_patterns: "{{ wizard_search_patterns.split(',') | map('trim') | list }}"
-        extra_paths: >-
-          {% if wizard_extra_paths | trim | length > 0 %}
-            {{ wizard_extra_paths.split(',') | map('trim') | list }}
-          {% else %}
-            []
-          {% endif %}
-        run_validation: "{{ wizard_run_validation | lower == 'ja' }}"
-
-    - name: "🔍 Validierung der Dateimuster"
-      assert:
-        that:
-          - search_patterns | select('match', '^\\*\\.[a-zA-Z0-9]+$') | list | length == search_patterns | length
-        fail_msg: "❌ Ungültiges Muster: {{ wizard_search_patterns }}"
-        success_msg: "✔️ Muster sind gültig"
-      when: run_validation
-
-    - name: "🎯 Host-Gruppe validieren"
-      assert:
-        that:
-          - groups[selected_hosts] is defined or selected_hosts in groups['all']
-        fail_msg: "❌ Gruppe/Host '{{ selected_hosts }}' nicht gefunden!"
-        success_msg: "✔️ Gruppe/Host '{{ selected_hosts }}' erkannt"
-      when: run_validation
-
-- name: "Proxmox Ansible Grundsetup (auf Zielhosts)"
-  hosts: "{{ hostvars['localhost']['selected_hosts'] | default('proxyv3') }}"
+# ------------------------------------------------------------------------------
+# STEP 2: EXECUTION
+# ------------------------------------------------------------------------------
+- name: "⚙️ Deployment"
+  hosts: "{{ hostvars['WIZARD_CONFIG']['target'] | default('proxmox_servers') }}"
   gather_facts: true
   become: true
-  vars:
-    backup_enabled: "{{ hostvars['localhost']['perform_backup'] }}"
-    file_patterns: "{{ hostvars['localhost']['search_patterns'] }}"
-    additional_paths: "{{ hostvars['localhost']['extra_paths'] }}"
 
   tasks:
-    - name: "🎯 Setup-Informationen anzeigen"
+    - name: "👋 Init"
       debug:
-        msg:
-          - "🚀 Starte Setup auf: {{ inventory_hostname }}"
-          - "💾 Backup aktiviert: {{ backup_enabled }}"
-          - "🔍 Dateimuster: {{ file_patterns | join(', ') }}"
+        msg: "Starte Deployment auf {{ inventory_hostname }}..."
 
-    - name: "📦 System Setup Tasks"
-      debug:
-        msg: "Hier würden die Rollen system_setup, user_management, project_backup laufen"
-      # roles:
-      #   - system_setup
-      #   - user_management
-      #   - project_backup
+    # 1. System Basis
+    - include_role: { name: system_setup }
+    - include_role: { name: user_management }
 
-- name: "📊 Post-Execution Validierung"
+    # 2. Main Installation Logic
+    - include_role: { name: installation_classes }
+
+# ------------------------------------------------------------------------------
+# STEP 3: REPORT
+# ------------------------------------------------------------------------------
+- name: "📊 Abschluss"
   hosts: controllers
-  gather_facts: true  # <- erforderlich für ansible_date_time
-  vars:
-    validation_timestamp: "{{ ansible_date_time.iso8601 }}"
-
+  gather_facts: false
   tasks:
-    - name: "📁 Log-Verzeichnis anlegen"
-      file:
-        path: "{{ playbook_dir }}/logs"
-        state: directory
-        mode: '0755'
-      delegate_to: localhost
-
-    - name: "🔍 Syntax-Check ausführen"
-      shell: |
-        ansible-playbook --syntax-check {{ playbook_dir }}/site.yml \
-          -i {{ playbook_dir }}/inventory/hosts.yml
-      register: final_syntax_check
-      ignore_errors: true
-
-    - name: "🧪 Dry-Run (Check-Modus)"
-      shell: |
-        ansible-playbook --check {{ playbook_dir }}/site.yml \
-          -i {{ playbook_dir }}/inventory/hosts.yml \
-          --limit {{ hostvars['localhost']['selected_hosts'] }}
-      register: dry_run_test
-      ignore_errors: true
-
-    - name: "📁 Setup-Log schreiben"
-      copy:
-        content: |
-          Timestamp: {{ validation_timestamp }}
-          Hosts: {{ hostvars['localhost']['selected_hosts'] }}
-          Syntax-Check: {{ 'OK' if final_syntax_check.rc == 0 else 'FEHLER' }}
-          Dry-Run: {{ 'OK' if dry_run_test.rc == 0 else 'WARNUNGEN' }}
-          Backup: {{ hostvars['localhost']['perform_backup'] }}
-          Dateimuster: {{ hostvars['localhost']['search_patterns'] | join(', ') }}
-          Extra Pfade: {{ hostvars['localhost']['extra_paths'] | join(', ') if hostvars['localhost']['extra_paths'] else 'Keine' }}
-        dest: "{{ playbook_dir }}/logs/wizard_setup_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.log"
-      delegate_to: localhost
-
-    - name: "🎯 Ampelstatus bestimmen"
-      set_fact:
-        status_msg: >-
-          {% if final_syntax_check.rc == 0 and dry_run_test.rc == 0 %}
-            🟢 Alles gut – Setup erfolgreich!
-          {% elif final_syntax_check.rc != 0 %}
-            🔴 Syntax-Fehler entdeckt
-          {% else %}
-            🟡 Setup abgeschlossen mit Warnungen
-          {% endif %}
-
-    - name: "📣 Zusammenfassung anzeigen"
-      debug:
-        msg:
-          - "{{ status_msg }}"
-          - "🕒 Zeitpunkt: {{ validation_timestamp }}"
-          - "🎯 Hosts: {{ hostvars['localhost']['selected_hosts'] }}"
-          - "🚀 Backup: {{ hostvars['localhost']['perform_backup'] }}"
-          - "🔍 Muster: {{ hostvars['localhost']['search_patterns'] | join(', ') }}"
-          - "📁 Extra Pfade: {{ hostvars['localhost']['extra_paths'] | join(', ') if hostvars['localhost']['extra_paths'] else 'Keine' }}"
-      when: hostvars['localhost']['run_validation'] | default(true)
-
+    - debug: msg="✅ Deployment Finished."

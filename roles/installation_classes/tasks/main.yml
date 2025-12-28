@@ -1,29 +1,55 @@
 ---
-# 1. Basis & Netzwerk
-- name: "🏗️ SETUP: Docker Umgebung vorbereiten"
+# --- PHASE 0: Docker Basis ---
+- name: "🏗️ BASE: Docker Engine & Network"
   include_tasks: docker_base.yml
 
-- name: "🌐 SETUP: Docker Netzwerke"
+- name: "🌐 BASE: Netzwerk 'app_network'"
   docker_network:
     name: app_network
     state: present
 
-# 2. Management
-- name: "🐙 APP: Portainer CE"
-  include_tasks: apps/portainer.yml
+# --- PHASE 1: Core Infrastructure (Ingress & Identity) ---
+- name: "CORE: Infrastructure Stack"
+  block:
+    - name: "🚦 Traefik (Ingress)"
+      include_tasks: core/traefik.yml
+    
+    - name: "🔐 Authentik (SSO/Identity)"
+      include_tasks: core/authentik.yml
+      
+    - name: "📜 Loki & Promtail (Logging)"
+      include_tasks: core/logging.yml
+      
+    - name: "📈 Monitoring (Prometheus/Grafana)"
+      include_tasks: core/monitoring.yml
+  when: hostvars['WIZARD_CONFIG']['do_infra'] | default(false)
 
-# 3. Das Single Work System
-- name: "📄 APP: Paperless-ngx (Dokumenten-Management)"
-  include_tasks: apps/paperless_stack.yml
+# --- PHASE 2: Applications ---
+- name: "APPS: Productivity & Media"
+  block:
+    - name: "🐙 Portainer"
+      include_tasks: apps/portainer.yml
 
-- name: "🗣️ APP: Whisper AI (Speech-to-Text API)"
-  include_tasks: apps/whisper.yml
+    - name: "📄 Paperless-ngx"
+      include_tasks: apps/paperless_stack.yml
+      
+    - name: "☁️ Nextcloud"
+      include_tasks: apps/nextcloud_stack.yml
+      
+    - name: "🍿 Jellyfin (AMD)"
+      include_tasks: apps/jellyfin.yml
+      
+    - name: "🧠 Whisper AI"
+      include_tasks: apps/whisper.yml
+      
+    - name: "🐍 Python Tools"
+      include_tasks: apps/python_tools.yml
+      
+    - name: "🏠 Home Dashboard"
+      include_tasks: apps/home_dashboard.yml
+  when: hostvars['WIZARD_CONFIG']['do_apps'] | default(false)
 
-- name: "🐍 APP: Python Automation Tools"
-  include_tasks: apps/python_tools.yml
-
-- name: "🏠 APP: Home Dashboard (Central Hub)"
-  include_tasks: apps/home_dashboard.yml
-
-- name: "☁️ APP: Nextcloud Hub (Cloud & Office)"
-  include_tasks: apps/nextcloud_stack.yml
+# --- PHASE 3: Maintenance & Tests ---
+- name: "TEST: Backup & Restore Validation"
+  include_tasks: maintenance/backup_test.yml
+  when: hostvars['WIZARD_CONFIG']['do_test'] | default(false)
