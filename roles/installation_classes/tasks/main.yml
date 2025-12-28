@@ -21,3 +21,6 @@
 
 - name: "🐍 APP: Python Automation Tools"
   include_tasks: apps/python_tools.yml
+
+- name: "🏠 APP: Home Dashboard (Central Hub)"
+  include_tasks: apps/home_dashboard.yml

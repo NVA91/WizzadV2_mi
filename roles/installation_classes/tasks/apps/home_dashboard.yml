@@ -1,0 +1,32 @@
+---
+- name: "📂 Home Dashboard Verzeichnis erstellen"
+  file:
+    path: /opt/docker/home_dashboard
+    state: directory
+    mode: '0755'
+
+- name: "📥 Source Code klonen (NVA91/home-dashboard)"
+  git:
+    repo: 'https://github.com/NVA91/home-dashboard.git'
+    dest: /opt/docker/home_dashboard/src
+    version: main
+    force: yes
+    # Falls das Repo privat ist, müsste hier ein Key hin. 
+    # Da es öffentlich aussieht, klappt es so.
+
+- name: "🖥️ Home Dashboard Container starten (Nginx)"
+  docker_container:
+    name: home-dashboard
+    image: nginx:alpine
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "8050:80" # Erreichbar unter http://SERVER-IP:8050
+    volumes:
+      - /opt/docker/home_dashboard/src:/usr/share/nginx/html:ro
+    networks:
+      - name: app_network
+
+- name: "✅ Info Dashboard"
+  debug:
+    msg: "Home Dashboard läuft auf http://{{ inventory_hostname }}:8050"
