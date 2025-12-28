@@ -1,0 +1,37 @@
+---
+- name: "📂 Jellyfin Verzeichnisse erstellen"
+  file:
+    path: "/opt/docker/jellyfin/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - config
+    - cache
+    - media
+
+- name: "🍿 Jellyfin Container starten (AMD Ryzen Edition)"
+  docker_container:
+    name: jellyfin
+    image: jellyfin/jellyfin:latest
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "8096:8096"
+    volumes:
+      - /opt/docker/jellyfin/config:/config
+      - /opt/docker/jellyfin/cache:/cache
+      - /opt/docker/jellyfin/media:/media
+    # WICHTIG für AMD Ryzen (Radeon Graphics):
+    # Wir reichen die Grafikkarte an den Container durch.
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri/card0:/dev/dri/card0
+    env:
+      # Hilft Jellyfin, die URLs korrekt zu bilden
+      JELLYFIN_PublishedServerUrl: "http://{{ inventory_hostname }}:8096"
+    networks:
+      - name: app_network
+
+- name: "✅ Info Jellyfin"
+  debug:
+    msg: "Jellyfin läuft auf http://{{ inventory_hostname }}:8096. Wichtig: Aktiviere im Dashboard 'VAAPI' als Hardware-Beschleunigung!"
