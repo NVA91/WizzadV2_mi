@@ -1,0 +1,33 @@
+---
+- name: "📂 Backup-Zielverzeichnis auf dem Server prüfen"
+  file:
+    path: /srv/transfer/backup
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: "📦 Ansible-Projekt sichern (vom Controller zum Server)"
+  # Wir nutzen 'synchronize' oder 'archive' lokal und kopieren es dann.
+  # Einfacher für den Anfang: Wir packen das Playbook-Verzeichnis auf dem Zielhost,
+  # FALLS es dort liegt (z.B. wenn du per git clone auf dem Server arbeitest).
+  # Da wir aber remote arbeiten, sichern wir hier exemplarisch Konfigs.
+  
+  block:
+    - name: "💾 Konfigurations-Backup erstellen"
+      archive:
+        path: 
+          - /etc/pve/  # Proxmox Configs (nur wenn auf PVE Host)
+        dest: "/srv/transfer/backup/pve_config_{{ ansible_date_time.date }}.tar.gz"
+        format: gz
+      ignore_errors: true # Ignorieren, falls wir noch nicht auf PVE sind
+      register: pve_backup
+
+    - name: "✅ Backup Status"
+      debug:
+        msg: "Backup erstellt: {{ pve_backup.dest }}"
+      when: pve_backup.changed
+  rescue:
+    - name: "⚠️ Backup fehlgeschlagen (aber Playbook läuft weiter)"
+      debug:
+        msg: "Konnte Backup nicht erstellen. Prüfe Berechtigungen."

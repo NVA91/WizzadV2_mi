@@ -1,0 +1,28 @@
+---
+- name: "👥 Admin-Gruppe sicherstellen"
+  group:
+    name: admin_group
+    state: present
+
+- name: "👤 Admin-User '{{ admin_username }}' anlegen"
+  user:
+    name: "{{ admin_username }}"
+    groups: "{{ admin_groups }}"
+    append: yes
+    shell: "{{ admin_shell }}"
+    create_home: yes
+    state: present
+
+- name: "🔑 SSH Public Key hinterlegen"
+  authorized_key:
+    user: "{{ admin_username }}"
+    state: present
+    # Wir lesen den PUBLIC Key ein. Der Private bleibt auf dem Controller (WSL).
+    key: "{{ lookup('file', admin_ssh_pubkey_path) }}"
+
+- name: "🛡️ Sudo ohne Passwort für Admin (Optional, für Komfort)"
+  copy:
+    dest: "/etc/sudoers.d/{{ admin_username }}"
+    content: "{{ admin_username }} ALL=(ALL) NOPASSWD: ALL"
+    mode: '0440'
+    validate: 'visudo -cf %s'
